@@ -1,12 +1,8 @@
-import { promises as fs } from 'fs';
-import path from 'path';
+import { kv } from '@vercel/kv';
+import { cookies } from 'next/headers';
 import { AppDatabase, DashboardSummary, ProgressByLevel, Quiz, Settings, StudyUnit, WeakWord } from '@/lib/types';
 import { createWeakWord, updateWeakWord } from '@/lib/server/review';
 import { getOxfordDataset } from '@/lib/server/oxford';
-import { dbMutex } from './mutex';
-
-const DATA_PATH = path.join(process.cwd(), 'data', 'db.json');
-const TEMPLATE_PATH = path.join(process.cwd(), 'data', 'db.template.json');
 
 const DEFAULT_SETTINGS: Settings = {
   dailyGoal: 100,
@@ -15,13 +11,14 @@ const DEFAULT_SETTINGS: Settings = {
   preferredQuizMode: 'mixed',
 };
 
-async function ensureDbFile() {
-  try {
-    await fs.access(DATA_PATH);
-  } catch {
-    const template = await fs.readFile(TEMPLATE_PATH, 'utf8');
-    await fs.writeFile(DATA_PATH, template, 'utf8');
-  }
+async function getSessionId() {
+  const cookieStore = await cookies();
+  const session = cookieStore.get('vocab-user-session')?.value;
+  return session || 'default_user';
+}
+
+function getCacheKey(sessionId: string) {
+  return `vocab_db_${sessionId}`;
 }
 
 function normalizeWeakWord(item: Partial<WeakWord> & { word?: string; normalized?: string }): WeakWord {
@@ -52,7 +49,8 @@ function normalizeWeakWord(item: Partial<WeakWord> & { word?: string; normalized
   };
 }
 
-function normalizeDb(raw: Partial<AppDatabase>): AppDatabase {
+function normalizeDb(raw: Partial<AppDatabase> | null): AppDatabase {
+  if (!raw) raw = {};
   const rawSettings = (raw.settings ?? {}) as Partial<Settings> & { preferredQuizType?: Settings['preferredQuestionStyle'] };
 
   return {
@@ -87,25 +85,21 @@ function normalizeDb(raw: Partial<AppDatabase>): AppDatabase {
 }
 
 export async function readDb(): Promise<AppDatabase> {
-  await ensureDbFile();
-  const raw = await fs.readFile(DATA_PATH, 'utf8');
-  return normalizeDb(JSON.parse(raw) as Partial<AppDatabase>);
+  const sessionId = await getSessionId();
+  const dbData = await kv.get<Partial<AppDatabase>>(getCacheKey(sessionId));
+  return normalizeDb(dbData);
 }
 
 export async function writeDb(db: AppDatabase) {
-  await fs.writeFile(DATA_PATH, JSON.stringify(db, null, 2), 'utf8');
+  const sessionId = await getSessionId();
+  await kv.set(getCacheKey(sessionId), db);
 }
 
 export async function updateDb(updater: (db: AppDatabase) => void | Promise<void>): Promise<AppDatabase> {
-  const release = await dbMutex.acquire();
-  try {
-    const db = await readDb();
-    await updater(db);
-    await writeDb(db);
-    return db;
-  } finally {
-    release();
-  }
+  const db = await readDb();
+  await updater(db);
+  await writeDb(db);
+  return db;
 }
 
 export async function getStudyUnits() {
