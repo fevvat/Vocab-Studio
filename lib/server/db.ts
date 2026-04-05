@@ -3,6 +3,7 @@ import path from 'path';
 import { AppDatabase, DashboardSummary, ProgressByLevel, Quiz, Settings, StudyUnit, WeakWord } from '@/lib/types';
 import { createWeakWord, updateWeakWord } from '@/lib/server/review';
 import { getOxfordDataset } from '@/lib/server/oxford';
+import { dbMutex } from './mutex';
 
 const DATA_PATH = path.join(process.cwd(), 'data', 'db.json');
 const TEMPLATE_PATH = path.join(process.cwd(), 'data', 'db.template.json');
@@ -95,6 +96,18 @@ export async function writeDb(db: AppDatabase) {
   await fs.writeFile(DATA_PATH, JSON.stringify(db, null, 2), 'utf8');
 }
 
+export async function updateDb(updater: (db: AppDatabase) => void | Promise<void>): Promise<AppDatabase> {
+  const release = await dbMutex.acquire();
+  try {
+    const db = await readDb();
+    await updater(db);
+    await writeDb(db);
+    return db;
+  } finally {
+    release();
+  }
+}
+
 export async function getStudyUnits() {
   const db = await readDb();
   return [...db.studyUnits].sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
@@ -106,16 +119,16 @@ export async function getStudyUnit(id: string) {
 }
 
 export async function saveStudyUnit(unit: StudyUnit) {
-  const db = await readDb();
-  db.studyUnits.unshift(unit);
-  db.activityLog.unshift({
-    id: crypto.randomUUID(),
-    type: 'study-unit-created',
-    createdAt: new Date().toISOString(),
-    title: `${unit.title} oluşturuldu`,
-    meta: { wordCount: unit.wordCount, source: unit.inputMethod },
+  await updateDb((db) => {
+    db.studyUnits.unshift(unit);
+    db.activityLog.unshift({
+      id: crypto.randomUUID(),
+      type: 'study-unit-created',
+      createdAt: new Date().toISOString(),
+      title: `${unit.title} oluşturuldu`,
+      meta: { wordCount: unit.wordCount, source: unit.inputMethod },
+    });
   });
-  await writeDb(db);
   return unit;
 }
 
@@ -130,9 +143,9 @@ export async function getQuizzes() {
 }
 
 export async function saveQuiz(quiz: Quiz) {
-  const db = await readDb();
-  db.quizzes.unshift(quiz);
-  await writeDb(db);
+  await updateDb((db) => {
+    db.quizzes.unshift(quiz);
+  });
   return quiz;
 }
 
@@ -150,29 +163,33 @@ function upsertWeakWord(list: WeakWord[], word: string, isCorrect: boolean) {
 }
 
 export async function saveQuizResult(quizId: string, result: Quiz['result']) {
-  const db = await readDb();
-  const quiz = db.quizzes.find((item) => item.id === quizId);
-  if (!quiz || !result) return null;
+  let updatedQuiz: Quiz | null = null;
 
-  quiz.result = result;
-  db.activityLog.unshift({
-    id: crypto.randomUUID(),
-    type: 'quiz-completed',
-    createdAt: new Date().toISOString(),
-    title: `${quiz.questionCount} soruluk quiz tamamlandı`,
-    meta: {
-      accuracy: result.accuracy,
-      score: result.score,
-      mode: quiz.mode,
-    },
+  await updateDb((db) => {
+    const quiz = db.quizzes.find((item) => item.id === quizId);
+    if (!quiz || !result) return;
+
+    quiz.result = result;
+    updatedQuiz = quiz;
+
+    db.activityLog.unshift({
+      id: crypto.randomUUID(),
+      type: 'quiz-completed',
+      createdAt: new Date().toISOString(),
+      title: `${quiz.questionCount} soruluk quiz tamamlandı`,
+      meta: {
+        accuracy: result.accuracy,
+        score: result.score,
+        mode: quiz.mode,
+      },
+    });
+
+    for (const answer of result.answers) {
+      upsertWeakWord(db.weakWords, answer.word, answer.isCorrect);
+    }
   });
 
-  for (const answer of result.answers) {
-    upsertWeakWord(db.weakWords, answer.word, answer.isCorrect);
-  }
-
-  await writeDb(db);
-  return quiz;
+  return updatedQuiz;
 }
 
 export async function getWeakWords() {

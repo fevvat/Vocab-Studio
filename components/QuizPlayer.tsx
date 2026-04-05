@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { Quiz } from '@/lib/types';
+import { playAudio } from '@/lib/audio';
 
 export function QuizPlayer({ quiz }: { quiz: Quiz }) {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -37,8 +38,11 @@ export function QuizPlayer({ quiz }: { quiz: Quiz }) {
       <div className="quiz-progress-card">
         <div className="progress-bar"><span style={{ width: `${Math.round((answeredCount / quiz.questions.length) * 100)}%` }} /></div>
         <p>{currentIndex + 1}. soru / {quiz.questions.length}</p>
-        <h3>{question.word}</h3>
-        <p className="muted">Bu quizde anında açıklamayı açabilir, sonunda tüm sonuçları görebilirsin.</p>
+        <div className="actions-row">
+          <h3 style={{ margin: 0 }}>{question.word}</h3>
+          <button type="button" className="button" style={{ padding: '6px 10px', borderRadius: '8px' }} title="Kelimeyi Dinle" onClick={() => playAudio(question.word)}>🔊</button>
+        </div>
+        <p className="muted" style={{ marginTop: '16px' }}>Bu quizde anında açıklamayı açabilir, sonunda tüm sonuçları görebilirsin.</p>
       </div>
 
       <div className="quiz-card">

@@ -43,9 +43,24 @@ async function pickWords(unit: StudyUnit, count: number, difficulty: DifficultyL
 }
 
 function mutateSpelling(word: string) {
-  if (word.length < 4) return `${word}e`;
+  if (word.length <= 3) return `${word}e`;
+
   const chars = word.split('');
-  const index = Math.min(1, chars.length - 2);
+
+  // Kural 1: Çift harfleri teke düşür (success -> succes)
+  for (let i = 0; i < chars.length - 1; i++) {
+    if (chars[i] === chars[i+1] && !['e', 'o'].includes(chars[i])) {
+      chars.splice(i, 1);
+      return chars.join('');
+    }
+  }
+
+  // Kural 2: ie -> ei değişimi (receive -> recieve kafa karışıklığı)
+  if (word.includes('ie')) return word.replace('ie', 'ei');
+  if (word.includes('ei')) return word.replace('ei', 'ie');
+
+  // Kural 3: Klasik harf yer değiştirme (sonlardan)
+  const index = Math.max(1, chars.length - 3);
   [chars[index], chars[index + 1]] = [chars[index + 1], chars[index]];
   return chars.join('');
 }
