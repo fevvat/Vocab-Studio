@@ -1,10 +1,13 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { EmptyState } from '@/components/EmptyState';
+import { ResultReflection } from '@/components/ResultReflection';
 import { SectionCard } from '@/components/SectionCard';
 import { StatCard } from '@/components/StatCard';
-import { getQuiz } from '@/lib/server/db';
+import { getDailyStudyPlan, getQuiz } from '@/lib/server/db';
 import { titleForQuestionStyle, titleForQuizMode } from '@/lib/utils';
+
+export const dynamic = 'force-dynamic';
 
 export default async function ResultPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -12,6 +15,7 @@ export default async function ResultPage({ params }: { params: Promise<{ id: str
   if (!quiz || !quiz.result) notFound();
   const currentQuiz = quiz;
   const currentResult = currentQuiz.result!;
+  const plan = await getDailyStudyPlan(currentQuiz.id);
 
   return (
     <div className="stack-xl">
@@ -43,25 +47,40 @@ export default async function ResultPage({ params }: { params: Promise<{ id: str
           )}
         </SectionCard>
 
-        <SectionCard title="Sonraki adımlar" description="Öğrenmeyi kalıcı hale getirmek için">
-          <div className="list-stack">
-            <Link href="/weak-words" className="list-card">
-              <div>
-                <strong>Zayıf kelimeleri incele</strong>
-                <p>Yanlışların tekrar planına eklenmiş durumda.</p>
-              </div>
-              <span>Git →</span>
-            </Link>
-            <Link href={`/study-units/${currentQuiz.studyUnitId}`} className="list-card">
-              <div>
-                <strong>Aynı setten yeni quiz üret</strong>
-                <p>Farklı mod veya farklı zorlukla tekrar yap.</p>
-              </div>
-              <span>Git →</span>
-            </Link>
-          </div>
+        <SectionCard title="Bu quiz sana nasıldı?" description="Öz değerlendirmen review planını hafifçe günceller">
+          <ResultReflection quizId={currentQuiz.id} initial={currentResult.selfRating} />
         </SectionCard>
       </div>
+
+      <SectionCard title="Sonraki adımlar" description="Öğrenmeyi kalıcı hale getirmek için">
+        <div className="list-stack">
+          <Link href="/weak-words" className="list-card">
+            <div>
+              <strong>Zayıf kelimeleri incele</strong>
+              <p>Yanlışların tekrar planına eklenmiş durumda.</p>
+            </div>
+            <span>Git →</span>
+          </Link>
+          <Link href={`/study-units/${currentQuiz.studyUnitId}`} className="list-card">
+            <div>
+              <strong>Aynı setten yeni quiz üret</strong>
+              <p>Farklı mod veya farklı zorlukla tekrar yap.</p>
+            </div>
+            <span>Git →</span>
+          </Link>
+        </div>
+      </SectionCard>
+
+      {plan ? (
+        <SectionCard title="Bugün için kişisel çalışma planın" description={`${plan.minutes} dakikalık odaklı tekrar planı`}>
+          <div className="stack-sm">
+            <p><strong>Due weak kelimeler:</strong> {plan.weakDueWords.length ? plan.weakDueWords.join(', ') : 'Bugün due kelime yok'}</p>
+            <p><strong>Pekiştirme kelimeleri:</strong> {plan.reinforcementWords.length ? plan.reinforcementWords.join(', ') : 'Bu quiz için ek pekiştirme yok'}</p>
+            <p><strong>Yeni kelimeler:</strong> {plan.newWords.length ? plan.newWords.join(', ') : 'Yeni kelime önerisi oluşmadı'}</p>
+            <p><strong>Önerilen mod sırası:</strong> {plan.recommendedModes.join(' → ')}</p>
+          </div>
+        </SectionCard>
+      ) : null}
 
       <SectionCard title="Soru bazlı özet" description="Açıklamalarla birlikte cevapların">
         <div className="list-stack">

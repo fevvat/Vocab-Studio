@@ -27,8 +27,24 @@ export function titleForQuestionStyle(type: QuestionStyle) {
       return 'TR → EN';
     case 'reverse_translation':
       return 'EN → TR';
+    case 'typed_translation':
+      return 'TR → EN (yazarak)';
+    case 'typed_reverse_translation':
+      return 'EN → TR (yazarak)';
     case 'spelling':
       return 'Yazım odaklı';
+    case 'meaning_match':
+      return 'Tanım eşleştirme';
+    case 'example_match':
+      return 'Örnek cümle eşleştirme';
+    case 'synonym':
+      return 'Eş anlam odaklı';
+    case 'antonym':
+      return 'Zıt anlam odaklı';
+    case 'sentence_completion':
+      return 'Cümle tamamlama';
+    case 'typed_sentence_completion':
+      return 'Cümle tamamlama (yazarak)';
     default:
       return 'Karışık soru seti';
   }

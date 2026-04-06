@@ -5,6 +5,15 @@ interface PdfProgress {
   progress: number;
 }
 
+function textLooksUseful(text: string) {
+  const clean = text.replace(/\s+/g, ' ').trim();
+  const alphaMatches = clean.match(/[A-Za-z]/g) ?? [];
+  const tokenMatches = clean.match(/[A-Za-z][A-Za-z'\-]{1,24}/g) ?? [];
+  const alphaRatio = clean.length ? alphaMatches.length / clean.length : 0;
+
+  return clean.length > 80 && alphaRatio > 0.45 && tokenMatches.length >= 8;
+}
+
 export async function extractTextFromPdf(file: File, onProgress?: (info: PdfProgress) => void) {
   const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
   pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/legacy/build/pdf.worker.min.mjs`;
@@ -24,7 +33,7 @@ export async function extractTextFromPdf(file: File, onProgress?: (info: PdfProg
   }
 
   const combined = pageTexts.join('\n');
-  if (combined.trim().length > 40) {
+  if (textLooksUseful(combined)) {
     return combined;
   }
 

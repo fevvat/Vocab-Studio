@@ -1,12 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { DifficultyLevel, QuestionStyle, QuizMode } from '@/lib/types';
+import { DifficultyLevel, QuestionStyle, QuizMode, Settings } from '@/lib/types';
 
-export function QuizBuilder({ unitId }: { unitId: string }) {
-  const [style, setStyle] = useState<QuestionStyle>('mixed');
-  const [mode, setMode] = useState<QuizMode>('mixed');
-  const [difficulty, setDifficulty] = useState<DifficultyLevel>('medium');
+export function QuizBuilder({ unitId, defaults }: { unitId: string; defaults?: Settings }) {
+  const [style, setStyle] = useState<QuestionStyle>(defaults?.preferredQuestionStyle ?? 'mixed');
+  const [mode, setMode] = useState<QuizMode>(defaults?.preferredQuizMode ?? 'mixed');
+  const [difficulty, setDifficulty] = useState<DifficultyLevel>(defaults?.preferredDifficulty ?? 'medium');
   const [questionCount, setQuestionCount] = useState(12);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -42,7 +42,13 @@ export function QuizBuilder({ unitId }: { unitId: string }) {
           <option value="context">Bağlam</option>
           <option value="translation">TR → EN</option>
           <option value="reverse_translation">EN → TR</option>
+          <option value="typed_translation">TR → EN (yazarak)</option>
+          <option value="typed_reverse_translation">EN → TR (yazarak)</option>
           <option value="spelling">Yazım</option>
+          <option value="meaning_match">Tanım eşleştirme</option>
+          <option value="example_match">Örnek cümle eşleştirme</option>
+          <option value="sentence_completion">Cümle tamamlama</option>
+          <option value="typed_sentence_completion">Cümle tamamlama (yazarak)</option>
         </select>
       </label>
 

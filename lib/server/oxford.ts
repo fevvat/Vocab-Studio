@@ -1,11 +1,21 @@
 import seedData from '@/data/oxford3000.seed.json';
 import { OxfordWord } from '@/lib/types';
 
-const oxfordWords = seedData as OxfordWord[];
+const oxfordWords = (seedData as OxfordWord[])
+  .filter((item) => item.normalized)
+  .sort((a, b) => a.word.localeCompare(b.word));
 const byNormalized = new Map(oxfordWords.map((item) => [item.normalized, item]));
 
 export function getOxfordDataset() {
   return oxfordWords;
+}
+
+export function getOxfordCatalogMeta() {
+  return {
+    localCount: oxfordWords.length,
+    declaredTarget: 3000,
+    completeness: Math.round((oxfordWords.length / 3000) * 100),
+  };
 }
 
 export function findOxfordWord(word: string) {
@@ -48,7 +58,7 @@ export function suggestOxfordWord(word: string) {
   }
 
   if (!best) return null;
-  const limit = normalized.length <= 4 ? 1 : 2;
+  const limit = normalized.length <= 4 ? 1 : normalized.length <= 7 ? 2 : 3;
   if (bestScore > limit) return null;
 
   return {

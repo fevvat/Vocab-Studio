@@ -1,9 +1,11 @@
 import Link from 'next/link';
+import { EmptyState } from '@/components/EmptyState';
 import { SectionCard } from '@/components/SectionCard';
 import { StatCard } from '@/components/StatCard';
-import { EmptyState } from '@/components/EmptyState';
 import { getDashboardSummary } from '@/lib/server/db';
 import { formatDate } from '@/lib/utils';
+
+export const dynamic = 'force-dynamic';
 
 export default async function HomePage() {
   const summary = await getDashboardSummary();
@@ -11,34 +13,76 @@ export default async function HomePage() {
   return (
     <div className="stack-xl">
       <section className="hero-card">
-        <div>
-          <div className="eyebrow">Kelime ezberini pasif değil aktif hale getir</div>
-          <h1>Görsel, metin veya PDF ile kelime ekle; sistem bunları quiz ve akıllı tekrara dönüştürsün.</h1>
+        <div className="stack-sm">
+          <div className="eyebrow">Study Workspace</div>
+          <h1>Tek panelden günlük öğrenme operasyonu</h1>
           <p>
-            Oxford 3000 çalışırken her 100 kelimelik grubu ayrı bir çalışma birimi olarak kaydet.
-            Sistem kelimeleri doğrulasın, şüpheli olanları işaretlesin, yanlış yaptıklarını daha sık geri getirsin.
+            Bu yeni arayüz veri odaklı bir çalışma döngüsü sunar: set seç, quiz üret, zayıf kelimeleri temizle,
+            performansı dashboard ile kontrol et.
           </p>
           <div className="actions-row">
-            <Link href="/upload" className="button button-primary">Yeni kelime seti ekle</Link>
-            <Link href="/progress-map" className="button">Oxford haritasını aç</Link>
+            <Link href="/quiz" className="button button-primary">Quiz Lab aç</Link>
+            <Link href="/weak-words" className="button">Recovery listesi</Link>
+            <Link href="/dashboard" className="button">Insights</Link>
+          </div>
+          <div className="chip-row">
+            <span className="chip">Set: {summary.totalUnits}</span>
+            <span className="chip">Quiz: {summary.totalQuizzes}</span>
+            <span className="chip">Streak: {summary.streak} gün</span>
           </div>
         </div>
+
         <div className="hero-panel">
-          <div className="hero-metric"><strong>{summary.totalWords}</strong><span>Toplam kaydedilen kelime</span></div>
-          <div className="hero-metric"><strong>%{summary.averageAccuracy}</strong><span>Ortalama quiz doğruluğu</span></div>
-          <div className="hero-metric"><strong>{summary.reviewReadyCount}</strong><span>Bugün tekrar bekleyen kelime</span></div>
+          <div className="hero-metric">
+            <strong>{summary.todayStudiedWords}</strong>
+            <span>Bugün işlenen kelime</span>
+          </div>
+          <div className="hero-metric">
+            <strong>{summary.reviewReadyCount}</strong>
+            <span>Hazır review adedi</span>
+          </div>
+          <div className="hero-metric">
+            <strong>%{summary.averageAccuracy}</strong>
+            <span>Ortalama quiz başarısı</span>
+          </div>
         </div>
       </section>
 
       <div className="stats-grid">
-        <StatCard title="Çalışma birimi" value={summary.totalUnits} hint="Her yükleme ayrı bir öğrenme seti" icon="📚" />
-        <StatCard title="Toplam quiz" value={summary.totalQuizzes} hint="Otomatik üretilen ve çözülen quizler" icon="🧠" />
-        <StatCard title="Zayıf kelime" value={summary.weakWordCount} hint="Yanlış oranı yüksek kelimeler" icon="🎯" />
-        <StatCard title="Oxford kapsama" value={`%${summary.oxfordCoverage}`} hint={`${summary.studiedOxfordCount} kelime işlendi`} icon="🗺️" />
+        <StatCard title="Günlük hedef" value={`%${summary.progressToGoal}`} hint={`${summary.todayStudiedWords}/${summary.dailyGoal} kelime`} icon="🎯" />
+        <StatCard title="Due today" value={summary.dueTodayCount} hint="Öncelikli review" icon="🕒" />
+        <StatCard title="Weak words" value={summary.weakWordCount} hint="Riskli kelime havuzu" icon="🧩" />
+        <StatCard title="Oxford coverage" value={`%${summary.oxfordCoverage}`} hint={`${summary.studiedOxfordCount} kelime`} icon="🗂️" />
       </div>
 
       <div className="grid-2">
-        <SectionCard title="Son çalışma birimleri" description="Yüklediğin en yeni kelime setleri">
+        <SectionCard title="Bugünkü rota" description="Kısa ve net çalışma akışı">
+          <div className="list-stack">
+            <Link href="/quiz" className="list-card">
+              <div>
+                <strong>1) Quiz Lab</strong>
+                <p>Aktif setten yeni test üret veya bekleyen quizi tamamla.</p>
+              </div>
+              <span>Başlat →</span>
+            </Link>
+            <Link href="/weak-words" className="list-card">
+              <div>
+                <strong>2) Recovery</strong>
+                <p>Due olan weak kelimeleri hızlı tekrar ile azalt.</p>
+              </div>
+              <span>Temizle →</span>
+            </Link>
+            <Link href="/ai-coach" className="list-card">
+              <div>
+                <strong>3) Coach Plan</strong>
+                <p>Başarı trendine göre sonraki oturum önerisi al.</p>
+              </div>
+              <span>Planla →</span>
+            </Link>
+          </div>
+        </SectionCard>
+
+        <SectionCard title="Son birimler" description="Yüklediğin en güncel setler">
           {summary.latestUnits.length ? (
             <div className="list-stack">
               {summary.latestUnits.map((unit) => (
@@ -52,25 +96,7 @@ export default async function HomePage() {
               ))}
             </div>
           ) : (
-            <EmptyState title="Henüz çalışma birimi yok" description="İlk görselini, metnini veya PDF’ini yükleyerek sistemi kullanmaya başla." ctaHref="/upload" ctaLabel="Kelime ekle" />
-          )}
-        </SectionCard>
-
-        <SectionCard title="Son aktiviteler" description="Üretim ve tekrar akışın burada görünür">
-          {summary.recentActivity.length ? (
-            <div className="timeline">
-              {summary.recentActivity.map((item) => (
-                <div className="timeline-item" key={item.id}>
-                  <div className="timeline-dot" />
-                  <div>
-                    <strong>{item.title}</strong>
-                    <p>{formatDate(item.createdAt)}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <EmptyState title="Aktivite oluşmadı" description="İlk çalışma birimi ve ilk quiz sonrasında burada bir geçmiş akışı göreceksin." />
+            <EmptyState title="Henüz set yok" description="İlk seti yükleyerek çalışma akışını başlat." ctaHref="/upload" ctaLabel="Set yükle" />
           )}
         </SectionCard>
       </div>

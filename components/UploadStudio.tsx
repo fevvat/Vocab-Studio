@@ -1,11 +1,10 @@
 'use client';
 
-import { ChangeEvent, useMemo, useState, useRef, useEffect } from 'react';
-import { createWorker, Worker } from 'tesseract.js';
-import { buildCandidates } from '@/lib/word-pipeline';
+import { ChangeEvent, useMemo, useState } from 'react';
+import { createWorker } from 'tesseract.js';
+import { buildCandidateForWord, buildCandidates } from '@/lib/word-pipeline';
 import { InputMethod, ParsedWordCandidate } from '@/lib/types';
 import { extractTextFromPdf } from '@/lib/pdf-client';
-import { playAudio } from '@/lib/audio';
 
 const DEFAULT_NOTES = 'Oxford 3000 setim için otomatik çıkarılan kelimeleri burada gözden geçirdim.';
 
@@ -34,19 +33,11 @@ export function UploadStudio() {
   const [progressLabel, setProgressLabel] = useState('Hazır');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
-  const workerRef = useRef<Worker | null>(null);
 
-  useEffect(() => {
-    return () => {
-      // Component unmount edildiğinde worker'ı temizle
-      if (workerRef.current) {
-        workerRef.current.terminate();
-        workerRef.current = null;
-      }
-    };
-  }, []);
-
-  const words = useMemo(() => candidates.map((item) => item.suggestion && item.status !== 'confirmed' ? item.suggestion : item.word), [candidates]);
+  const words = useMemo(
+    () => candidates.map((item) => (item.suggestion && item.status !== 'confirmed' ? item.suggestion : item.word)),
+    [candidates],
+  );
   const suspiciousCount = useMemo(() => candidates.filter((item) => item.status !== 'confirmed').length, [candidates]);
 
   function refreshCandidates(text: string, method: InputMethod) {
@@ -67,18 +58,16 @@ export function UploadStudio() {
     setError('');
 
     try {
-      if (!workerRef.current) {
-        workerRef.current = await createWorker('eng', 1, {
-          logger: (message: any) => {
-            if (message.status === 'recognizing text') {
-              setProgress(Math.round((message.progress || 0) * 100));
-              setProgressLabel('Görseldeki metin okunuyor');
-            }
-          },
-        });
-      }
-
-      const result = await workerRef.current.recognize(file);
+      const worker = await createWorker('eng', 1, {
+        logger: (message: any) => {
+          if (message.status === 'recognizing text') {
+            setProgress(Math.round((message.progress || 0) * 100));
+            setProgressLabel('Görseldeki metin okunuyor');
+          }
+        },
+      });
+      const result = await worker.recognize(file);
+      await worker.terminate();
       refreshCandidates(result.data.text, 'image');
     } catch (err) {
       console.error(err);
@@ -126,14 +115,16 @@ export function UploadStudio() {
   }
 
   function updateCandidate(index: number, value: string) {
-    setCandidates((prev) => prev.map((item, currentIndex) => currentIndex === index ? {
+    const rebuilt = buildCandidateForWord(value, 'text');
+    if (!rebuilt) return;
+
+    setCandidates((prev) => prev.map((item, currentIndex) => (currentIndex === index ? {
       ...item,
-      word: value.trim().toLowerCase(),
-      normalized: value.trim().toLowerCase(),
-      suggestion: undefined,
-      status: 'confirmed',
-      matchedOxford: item.matchedOxford,
-    } : item));
+      ...rebuilt,
+      original: item.original,
+      status: rebuilt.matchedOxford ? 'confirmed' : rebuilt.status,
+      confidence: rebuilt.matchedOxford ? Math.max(rebuilt.confidence, 0.92) : rebuilt.confidence,
+    } : item)));
   }
 
   function applySuggestion(index: number) {
@@ -152,15 +143,19 @@ export function UploadStudio() {
   }
 
   function addExtraWord() {
-    const clean = extraWord.trim().toLowerCase();
-    if (!clean) return;
-    const fresh = buildCandidates(clean, 'text')[0];
+    const fresh = buildCandidateForWord(extraWord, 'text');
     if (!fresh) return;
     setCandidates((prev) => {
       if (prev.some((item) => item.normalized === fresh.normalized)) return prev;
       return [...prev, fresh];
     });
     setExtraWord('');
+  }
+
+  function reparseCurrentRawText() {
+    const sourceText = rawText || manualText;
+    if (!sourceText.trim()) return;
+    refreshCandidates(sourceText, inputMethod);
   }
 
   async function handleSave() {
@@ -247,7 +242,7 @@ export function UploadStudio() {
         <div className="section-head">
           <div>
             <h2>2. Çalışma birimini düzenle</h2>
-            <p>Şüpheli kelimeleri tek tıkla düzelt, gerekirse kendi kelimeni ekle, sonra kaydet.</p>
+            <p>Şüpheli kelimeleri tek tıkla düzelt, gerekirse kendi kelimeni ekle, ham metni yeniden parse et, sonra kaydet.</p>
           </div>
         </div>
 
@@ -274,7 +269,8 @@ export function UploadStudio() {
             <span className="chip">Yöntem: {inputMethod}</span>
           </div>
 
-          <div className="actions-row">
+          <div className="actions-row wrap-actions">
+            <button type="button" className="button" onClick={reparseCurrentRawText}>Ham metni yeniden işle</button>
             <input
               className="input inline-input"
               value={extraWord}
@@ -289,15 +285,11 @@ export function UploadStudio() {
           {candidates.map((candidate, index) => (
             <div key={`${candidate.normalized}-${index}`} className="review-row">
               <div className="review-main">
-                <div className="actions-row">
-                  <input
-                    value={candidate.word}
-                    onChange={(e: any) => updateCandidate(index, e.target.value)}
-                    className="input"
-                    style={{ flex: 1 }}
-                  />
-                  <button type="button" className="button" title="Dinle" onClick={() => playAudio(candidate.word)}>🔊</button>
-                </div>
+                <input
+                  value={candidate.word}
+                  onChange={(e: any) => updateCandidate(index, e.target.value)}
+                  className="input"
+                />
                 <div className="chip-row">
                   <span className={`chip ${candidate.status !== 'confirmed' ? 'chip-danger' : ''}`}>{statusLabel(candidate.status)}</span>
                   <span className="chip">%{Math.round(candidate.confidence * 100)}</span>
@@ -317,7 +309,7 @@ export function UploadStudio() {
           ))}
         </div>
 
-        <div className="actions-row between">
+        <div className="actions-row between wrap-actions">
           <div className="chip-row">
             {words.slice(0, 20).map((word) => (
               <span key={word} className="chip">{word}</span>

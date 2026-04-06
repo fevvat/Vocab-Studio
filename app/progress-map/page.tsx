@@ -2,6 +2,8 @@ import { SectionCard } from '@/components/SectionCard';
 import { StatCard } from '@/components/StatCard';
 import { getDashboardSummary } from '@/lib/server/db';
 
+export const dynamic = 'force-dynamic';
+
 export default async function ProgressMapPage() {
   const summary = await getDashboardSummary();
   const totalOxford = summary.progressByLevel.reduce((sum, item) => sum + item.total, 0);
@@ -13,14 +15,14 @@ export default async function ProgressMapPage() {
         <div>
           <div className="eyebrow">Oxford 3000 progress</div>
           <h1>Oxford ilerleme haritası</h1>
-          <p>Yerel veri seti içindeki coverage, weak ve mastered durumunu seviye bazında takip et.</p>
+          <p>Yerel katalog içindeki coverage, weak ve mastered durumunu seviye bazında takip et. Oxford dışı kelimeler ayrı sayılır.</p>
         </div>
       </div>
 
       <div className="stats-grid">
-        <StatCard title="Toplam yerel Oxford" value={totalOxford} hint="Projede yer alan seed veri seti" icon="📘" />
-        <StatCard title="Çalışılan" value={summary.studiedOxfordCount} hint="En az bir kez eklenen kelimeler" icon="✅" />
-        <StatCard title="Weak" value={weakTotal} hint="Hâlâ zorlandığın kelimeler" icon="⚠️" />
+        <StatCard title="Yerel katalog" value={summary.catalogWordCount} hint="Bu sürümde paketlenen Oxford seed veri" icon="📘" />
+        <StatCard title="Çalışılan" value={summary.studiedOxfordCount} hint="Katalog içindeki işlenen kelimeler" icon="✅" />
+        <StatCard title="Oxford dışı" value={summary.studiedNonOxfordCount} hint="Sistemin işlediği ek kelimeler" icon="➕" />
         <StatCard title="Mastered" value={summary.masteredCount} hint="Doğru oranı yüksek kelimeler" icon="🏆" />
       </div>
 
@@ -43,6 +45,12 @@ export default async function ProgressMapPage() {
             );
           })}
         </div>
+      </SectionCard>
+
+      <SectionCard title="Katalog notu" description="Bu görünüm yerel veri kataloğuna göre hesaplanır">
+        <p className="muted">
+          Bu sürüm, paket içine gömülü bir Oxford seed kataloğu ile gelir. Oxford dışı ama senin eklediğin kelimeler quiz ve weak-word akışında tam çalışır; sadece seviye haritasında ayrı sayılır.
+        </p>
       </SectionCard>
     </div>
   );

@@ -1,118 +1,76 @@
-'use client';
-
 import Link from 'next/link';
-import { ReactNode, useState, useEffect } from 'react';
-import { playAudio } from '@/lib/audio';
+import { ReactNode } from 'react';
 
-const links = [
-  { href: '/', label: 'Ana Sayfa' },
-  { href: '/upload', label: 'Kelime Ekle' },
-  { href: '/dashboard', label: 'Dashboard' },
-  { href: '/progress-map', label: 'Oxford Haritası' },
-  { href: '/weak-words', label: 'Zayıf Kelimeler' },
-  { href: '/history', label: 'Geçmiş' },
-  { href: '/settings', label: 'Ayarlar' },
+const primaryLinks = [
+  { href: '/', label: 'Workspace' },
+  { href: '/quiz', label: 'Quiz Lab' },
+  { href: '/upload', label: 'Import' },
+  { href: '/dashboard', label: 'Insights' },
+  { href: '/weak-words', label: 'Recovery' },
+];
+
+const secondaryLinks = [
+  { href: '/history', label: 'History' },
+  { href: '/progress-map', label: 'Progress Map' },
+  { href: '/ai-coach', label: 'Coach' },
+  { href: '/settings', label: 'Settings' },
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResult, setSearchResult] = useState<any>(null);
-  const [isSearching, setIsSearching] = useState(false);
-
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      if (searchQuery.trim().length > 1) {
-        handleSearch(searchQuery.trim());
-      } else {
-        setSearchResult(null);
-      }
-    }, 500);
-    return () => clearTimeout(handler);
-  }, [searchQuery]);
-
-  async function handleSearch(q: string) {
-    setIsSearching(true);
-    try {
-      const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
-      if (res.ok) {
-        const data = await res.json();
-        setSearchResult(data);
-      } else {
-        setSearchResult({ error: 'Bulunamadı' });
-      }
-    } catch {
-      setSearchResult({ error: 'Arama hatası' });
-    } finally {
-      setIsSearching(false);
-    }
-  }
-
   return (
     <div className="page-shell">
       <aside className="sidebar">
         <div className="brand-block">
-          <div className="brand-icon">OX</div>
+          <div className="brand-icon">OV</div>
           <div>
-            <div className="eyebrow">Oxford 3000 çalışma asistanı</div>
-            <h1>Vocab Studio</h1>
+            <div className="eyebrow">Oxford vocabulary system</div>
+            <h1>Studio Console</h1>
           </div>
         </div>
 
-        {/* Global Search Bar */}
-        <div style={{ marginBottom: '24px', position: 'relative' }}>
-          <input
-            type="text"
-            className="input"
-            style={{ padding: '10px 14px', fontSize: '0.9rem' }}
-            placeholder="Sözlükte kelime ara..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-
-          {searchQuery.trim().length > 1 && (
-            <div style={{
-              position: 'absolute', top: '100%', left: 0, right: 0,
-              backgroundColor: 'var(--panel)', padding: '16px',
-              borderRadius: '12px', marginTop: '8px', zIndex: 10,
-              border: '1px solid var(--line)', boxShadow: 'var(--shadow)'
-            }}>
-              {isSearching ? (
-                <p className="muted" style={{ margin: 0, fontSize: '0.85rem' }}>Aranıyor...</p>
-              ) : searchResult && !searchResult.error ? (
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <h3 style={{ margin: 0, color: 'var(--primary)' }}>{searchResult.word}</h3>
-                    <button type="button" className="button" style={{ padding: '4px 8px' }} onClick={() => playAudio(searchResult.word)}>🔊</button>
-                  </div>
-                  <p style={{ margin: '8px 0 0', fontSize: '0.9rem' }}><strong>Tr:</strong> {searchResult.translationTr}</p>
-                  {searchResult.definitionEn && <p className="muted" style={{ margin: '4px 0 0', fontSize: '0.85rem' }}>{searchResult.definitionEn}</p>}
-                  {searchResult.level && <span className="chip" style={{ marginTop: '10px', display: 'inline-block', fontSize: '0.75rem' }}>Level: {searchResult.level}</span>}
-                </div>
-              ) : (
-                <p className="error-text" style={{ margin: 0, fontSize: '0.85rem' }}>Sözlükte eşleşme kalıbı bulunamadı.</p>
-              )}
-            </div>
-          )}
+        <div className="chip-row">
+          <span className="chip">Focus Mode</span>
+          <span className="chip">Quiz Driven</span>
         </div>
 
-        <nav className="nav-stack">
-          {links.map((link) => (
+        <div className="sidebar-divider" />
+
+        <nav className="nav-stack" aria-label="Primary navigation">
+          {primaryLinks.map((link) => (
             <Link key={link.href} href={link.href} className="nav-link">
-              {link.label}
+              <span>{link.label}</span>
+              <span aria-hidden>↗</span>
             </Link>
           ))}
         </nav>
 
+        <div className="sidebar-divider" />
+
+        <nav className="nav-stack" aria-label="Secondary navigation">
+          {secondaryLinks.map((link) => (
+            <Link key={link.href} href={link.href} className="nav-link">
+              <span>{link.label}</span>
+              <span aria-hidden>↗</span>
+            </Link>
+          ))}
+        </nav>
+
+        <div className="sidebar-divider" />
+
         <div className="sidebar-card">
-          <p className="sidebar-card-title">Akıllı tekrar mantığı</p>
-          <p>
-            Görsel, metin ve PDF girişleri aynı öğrenme hattına bağlanır. Yanlış yaptığın kelimeler daha sık gösterilir,
-            Oxford ilerleme haritası ise ne kadar yol aldığını görünür kılar.
-          </p>
+          <p className="sidebar-card-title">Today loop</p>
+          <p>Build a quiz, clear weak words, review insights, then lock tomorrow's plan with Coach.</p>
+          <ul className="sidebar-list">
+            <li>Import or open a study unit</li>
+            <li>Generate timed quiz session</li>
+            <li>Finish due weak-word queue</li>
+          </ul>
         </div>
       </aside>
 
-      <main className="main-content">{children}</main>
+      <main className="main-content">
+        <div className="main-content-inner">{children}</div>
+      </main>
     </div>
   );
 }

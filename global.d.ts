@@ -50,6 +50,15 @@ declare module 'pdfjs-dist/legacy/build/pdf.mjs' {
   export function getDocument(args: any): any;
 }
 
+declare module '@supabase/supabase-js' {
+  export function createClient(...args: any[]): any;
+}
+
+declare module 'js-cookie' {
+  const Cookies: any;
+  export default Cookies;
+}
+
 declare module 'fs' {
   export const promises: any;
 }
@@ -60,3 +69,4 @@ declare module 'path' {
 }
 
 declare const process: any;
+declare const crypto: any;

@@ -1,4 +1,4 @@
-import { WordMeta } from '@/lib/types';
+import { WordEntry, WordMeta } from '@/lib/types';
 import { findOxfordWord } from '@/lib/server/oxford';
 
 function fallbackMeta(word: string): WordMeta {
@@ -13,6 +13,27 @@ function fallbackMeta(word: string): WordMeta {
     phonetic: '',
     isOxford3000: false,
     source: 'fallback',
+  };
+}
+
+function fromWordEntry(entry: WordEntry): WordMeta | null {
+  if (!entry.word) return null;
+  if (!entry.translationTr && !entry.definitionEn && !entry.example) return null;
+
+  return {
+    word: entry.word,
+    normalized: entry.normalized,
+    definitionEn: entry.definitionEn || fallbackMeta(entry.word).definitionEn,
+    translationTr: entry.translationTr || fallbackMeta(entry.word).translationTr,
+    example: entry.example || fallbackMeta(entry.word).example,
+    exampleTr: entry.exampleTr || fallbackMeta(entry.word).exampleTr,
+    partOfSpeech: entry.partOfSpeech || 'unknown',
+    phonetic: '',
+    level: entry.level,
+    synonym: entry.synonym,
+    antonym: entry.antonym,
+    isOxford3000: entry.matchedOxford,
+    source: 'unit-cache',
   };
 }
 
@@ -35,9 +56,12 @@ async function fetchTranslation(word: string) {
   }
 }
 
-export async function enrichWord(word: string): Promise<WordMeta> {
+export async function enrichWord(word: string, preferredEntry?: WordEntry): Promise<WordMeta> {
   const clean = word.trim().toLowerCase();
   if (!clean) return fallbackMeta(word);
+
+  const cachedMeta = preferredEntry ? fromWordEntry(preferredEntry) : null;
+  if (cachedMeta) return cachedMeta;
 
   const local = findOxfordWord(clean);
   if (local) {
@@ -87,8 +111,9 @@ export async function enrichWord(word: string): Promise<WordMeta> {
   }
 }
 
-export async function enrichWords(words: string[]) {
+export async function enrichWords(words: string[], preferredEntries: WordEntry[] = []) {
+  const entryMap = new Map(preferredEntries.map((entry) => [entry.normalized, entry]));
   const unique = [...new Set(words.map((word) => word.toLowerCase().trim()).filter(Boolean))];
-  const metas = await Promise.all(unique.map((word) => enrichWord(word)));
+  const metas = await Promise.all(unique.map((word) => enrichWord(word, entryMap.get(word))));
   return metas;
 }

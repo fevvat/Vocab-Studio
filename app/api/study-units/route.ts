@@ -4,6 +4,8 @@ import { buildCandidates } from '@/lib/word-pipeline';
 import { InputMethod, ParsedWordCandidate } from '@/lib/types';
 import { enrichWord } from '@/lib/server/enrich';
 
+const ALLOWED_INPUT_METHODS = new Set<InputMethod>(['image', 'text', 'pdf']);
+
 export async function GET() {
   const units = await getStudyUnits();
   return NextResponse.json(units);
@@ -11,11 +13,19 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
+  if (!body || typeof body !== 'object') {
+    return NextResponse.json({ message: 'Geçersiz istek gövdesi.' }, { status: 400 });
+  }
+
   const title = typeof body.title === 'string' && body.title.trim() ? body.title.trim() : 'Yeni Çalışma Birimi';
   const sourceName = typeof body.sourceName === 'string' ? body.sourceName : 'manuel-giris';
   const notes = typeof body.notes === 'string' ? body.notes : '';
   const inputMethod = (typeof body.inputMethod === 'string' ? body.inputMethod : 'text') as InputMethod;
   const rawInput = typeof body.rawInput === 'string' ? body.rawInput : '';
+
+  if (!ALLOWED_INPUT_METHODS.has(inputMethod)) {
+    return NextResponse.json({ message: 'Geçersiz inputMethod değeri.' }, { status: 400 });
+  }
   const providedWords: string[] = Array.isArray(body.words) ? body.words.map((item: unknown) => String(item)) : [];
   const providedCandidates: ParsedWordCandidate[] = Array.isArray(body.candidates) ? body.candidates : [];
 
@@ -58,6 +68,7 @@ export async function POST(request: NextRequest) {
       synonym: meta.synonym,
       antonym: meta.antonym,
       matchedOxford: meta.isOxford3000 || item.matchedOxford,
+      source: meta.source,
     };
   }));
 
